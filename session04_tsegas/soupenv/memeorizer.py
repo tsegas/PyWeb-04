@@ -72,23 +72,28 @@ To submit your homework:
   * Commit and push your changes to your fork.
   * Submit a link to your PyWeb-04 fork repository!
 """
+import os
 
 from bs4 import BeautifulSoup
 import requests
 
-def meme_it(fact,ImgType):
-   # url = 'http://cdn.meme.am/Instance/Preview'
-   # url = 'https://memegenerator.net/instance'
+def meme_it(data,ImgType):
+    """This method creates the meme using the data and an image"""
+
+    """ param data: The content from process
+        param ImgType: The image selected by process
+        return response: The meme which will become the body in the application"""
+
     url = 'http://cdn.meme.am/Instance/Preview'
     if ImgType == "buzz" :
       params = {
         'imageID': 2097248,
-        'text1': fact
+        'text1': data
         }
-    else :
+    elif ImgType == "aliens"  :
       params = {
         'imageID': 11837275,
-        'text1': fact
+        'text1': data
         }
 
     response = requests.get(url, params)
@@ -96,53 +101,71 @@ def meme_it(fact,ImgType):
     return response.content
 
 
-def parse_fact(body):
+def parse_fact(body,contType):
+    """This method gets the content of the fact/news and returns it in text"""
+
+    """ param body: The site content from get_fact
+        param contType: The content from process
+        return content: The content in text  """
+
     parsed = BeautifulSoup(body, 'html5lib')
-    fact = parsed.find('div', id='breaking-news')
+    if contType == "news" :
+      fact = parsed.find('div', id='breaking-news')
+    elif contType == "fact" :
+      fact = parsed.find('div', id='content')
     return fact.text.strip()
 
 def get_fact(contType):
-    
+    """This method determines if the content is a fact or news and returns it"""
+
+    """ param contType: The content from process
+        return data: The fact or news message  """
+
     if contType == "news" :
       response = requests.get('http://cnn.com')
-    else :
+    elif contType == "fact" :
       response = requests.get('http://unkno.com')
-    return parse_fact(response.text)
+    return parse_fact(response.text,contType)
 
 def process(path):
+    """This method should determine the path and return the meme"""
+
+    """ param path: The path provided by the application
+        return meme: The meme generated using the text and image from related sites """
+
     args = path.strip("/").split("/")
 
-
     cont_name = args.pop(0)
-    print(cont_name)
+
     img_name = args.pop(0)
-    print(img_name)
 
-    # Lookup lists all the possible operations
-    lookupC = {"fact" : fact, 
-              "news" : news}
-    lookupI = {"buzz" : buzz, 
-              "aliens" : aliens}
-    contType = lookupC.get(cont_name)
-    ImgType = lookupI.get(img_name)
-    print(contType)
-    print(ImgType)
+    data = get_fact(cont_name)
 
-
-    fact = get_fact(contType)
-
-    meme = meme_it(fact,ImgType)
+    meme = meme_it(data, img_name)
 
     return meme
 
 def application(environ, start_response):
+    """This method is the application"""
+
+    """ param environ: used to get the path
+        param start_response: The start_response method
+        return body: The main content """
+
     headers = [('Content-type', 'image/jpeg')]
     try:
         path = environ.get('PATH_INFO', None)
         if path is None:
             raise NameError
-
-        body = process(path)
+        if path == "/":
+          headers = [('Content-type', 'text/html')]
+          body = "Here's how to use this page:<br/> \
+                   Add /fact/buzz to the path to see the buzz image with a fact \
+                   or add /news/aliens <br/>to the path to see the aliens image with a news \
+                   message, e.g. <br/>http://localhost:8080/fact/buzz, or the other combination."
+          body = body.encode('utf8')
+        else:
+          body = process(path)
         status = "200 OK"
     except NameError:
         status = "404 Not Found"
